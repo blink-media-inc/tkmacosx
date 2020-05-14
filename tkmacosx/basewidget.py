@@ -211,8 +211,8 @@ class _Canvas(_TK.Widget):
         hbdw = bdw / 2
         x0 = floor(x + hbdw)
         y0 = floor(y + hbdw)
-        x1 = floor(x + w - (hbdw + 1))
-        y1 = floor(y + h - (hbdw + 1))
+        x1 = ceil(x + w - (hbdw + 1))
+        y1 = ceil(y + h - (hbdw + 1))
         bdpoints = [
             floor(x0 + hc), floor(y0 + hc),
             x0 + c, y0,
@@ -230,7 +230,7 @@ class _Canvas(_TK.Widget):
         ]
         features = {
             'outline': '', 
-            'fill': 'white',
+            'fill': 'silver',
             'tag': tag1,
             #'joinstyle': _TK.ROUND,
             'width': 2
@@ -347,13 +347,13 @@ class WidgetState:
 
 
 class Widget(_Canvas):
-    """Internal class used for tkinter macos Buttton"""
+    """Internal class used for tkinter macOS Button"""
 
     _instances = []  # list of all buttons
     _features = [  
         'activebackground',
         'activebitmap', 
-        'pressedbordercolor', 
+        'activebordercolor', 
         'activeborderwidth',
         'activeforeground', 
         'activeimage', 
@@ -419,7 +419,9 @@ class Widget(_Canvas):
 
     repaint_fps = 50
 
-    def __init__(self, master=None, cnf={}, **kw):
+    def __init__(self, master=None, cnf=None, **kw):
+        if not cnf:
+            cnf = {}
         kw = _TK._cnfmerge( (cnf, kw) )
         kw = { k:v for k,v in kw.items() if v is not None }
         self.stopped = None
@@ -427,15 +429,15 @@ class Widget(_Canvas):
         for i in kw.copy().keys():
             if i in self._features: self.cnf[i] = kw.pop(i, None)
 
-        self.cnf['bg'] = self.cnf.get('bg', None) or self.cnf.get('background', '#dddddd')
-        self.cnf['fg'] = self.cnf.get('fg', None) or self.cnf.get('foreground', 'black')
-        self.cnf['bd'] = self.cnf.get('bd', None) or self.cnf.get('borderwidth', 4)
-        self.cnf['innerbg'] = self.cnf.get('innerbg', None) or self.cnf.get('innerbackground', '#eeeeee')
+        self.cnf['background'] = self.cnf.get('background', None) or self.cnf.get('bg', '#dddddd')
+        self.cnf['foreground'] = self.cnf.get('foreground', None) or self.cnf.get('fg', 'black')
+        self.cnf['innerbackground'] = self.cnf.get('innerbackground', None) or self.cnf.get('innerbg', '#eeeeee')
         self.cnf['cornerrounding'] = int(self.cnf.get('cornerrounding', 0))
-        self.cnf['borderwidth'] = int(self.cnf.get('borderwidth', 0))
-        self.cnf['borderless'] = self.cnf['borderwidth'] == 0
+        self.cnf['borderwidth'] = int(self.cnf.get('borderwidth', None) or self.cnf.get('bd', 4))
+        self.cnf['borderless'] = bool(self.cnf['borderwidth'] == 0)
         self.cnf['disabledforeground'] = self.cnf.get('disabledforeground', 'grey')
-        if self.cnf.get('textvariable') is not None: self.cnf['text'] = self.cnf['textvariable'].get()
+        if self.cnf.get('textvariable') is not None: 
+            self.cnf['text'] = self.cnf['textvariable'].get()
         self.cnf['anchor'] = self.cnf.get('anchor', 'center')
 
         kw['takefocus'] = kw.get('takefocus', 1)
@@ -453,26 +455,26 @@ class Widget(_Canvas):
         self._innerbg_id = ''
         self._compute_state()
         self._size = (self.winfo_width(), self.winfo_height())
-        if self.cnf.get('text'): self._text(0,0,text=None, tag='_txt')
-        if self.cnf.get('image'): self._image(0,0,image=None, tag='_img')
-        elif self.cnf.get('bitmap'): self._bitmap(0,0,image=None, tag='_bit')
+        self._text(0,0,text=None, tag='_txt')
+        self._image(0,0,image=None, tag='_img')
+        self._bitmap(0,0,image=None, tag='_bit')
         self.bind_class('mouse_enter', '<Enter>', self.on_mouse_enter, '+')
         self.bind_class('mouse_leave', '<Leave>', self.on_mouse_leave, '+')
         self.bind_class('button_release', '<ButtonRelease-1>', self.on_release, '+')
         self.bind_class('button_press', '<Button-1>', self.on_press, '+' )
         self.bind_class('set_size', '<Configure>', self._set_size, '+')
-        self.original_bg = self['bg']
+        self.original_bg = self['background']
 
         #  Focus in and out effect 
         main_win =  self.winfo_toplevel()
         def _chngIn(evt):
             #print("chngIn", evt.widget, evt)
             if self.focus_get() is None:
-                color = get_shade(self['bg'], 0.04, 'auto-120')
+                color = get_shade(self['background'], 0.04, 'auto-120')
                 self.itemconfig('_border1', outline=color)
                 self.itemconfig('_border2', fill=color)
-            if self.focus_get() and get_shade(self['bg'], 0.04, 'auto-120') == self.itemcget('_border2','fill'):
-                color = get_shade(self['bg'], 0.1, 'auto-120')
+            if self.focus_get() and get_shade(self['background'], 0.04, 'auto-120') == self.itemcget('_border2','fill'):
+                color = get_shade(self['background'], 0.1, 'auto-120')
                 self.itemconfig('_border1', outline=color)
                 self.itemconfig('_border2', fill=color)
         main_win.bind_class(main_win,'<FocusIn>', _chngIn, '+')
@@ -496,10 +498,10 @@ class Widget(_Canvas):
         self.invalidate_ui()
 
     def _init_widget(self):
-        cr = self.cnf['cornerrounding']
-        innerbgcolor = self.cnf.get('innerbackgroundg')
+        cr = int(self.cnf['cornerrounding'])
+        innerbgcolor = self.cnf.get('innerbackground')
         bdw = int(self.cnf.get('borderwidth', 1))
-        bdcolor = self.cnf.get('bordercolor', get_shade(self['bg'], 0.04, 'auto-120'))
+        bdcolor = self.cnf.get('bordercolor', get_shade(self['background'], 0.04, 'auto-120'))
         width, height = self._size
         if self._innerbg_id:
             #TODO: destroy previous widget
@@ -664,18 +666,22 @@ class Widget(_Canvas):
         state = self['state']
         richstate = self.richstate
         print("Repainting {} state={}, richstate={}".format(self, state, self.richstate))
-        bg_updates = self._generate_updates_from_state(richstate, {
+        bg_updates = {
+            'background': self.cnf.get('background')
+        }
+        self._configure('configure', cnf=bg_updates)
+        innerbg_updates = self._generate_updates_from_state(richstate, {
             'fill': ('background', 'inner'),
             'outline': ('bordercolor',),
             'width': ('borderwidth',),
         })
-        print("Updates to button base: ", str(bg_updates))
-        self.itemconfig(self._innerbg_id, **bg_updates)
+        print("Updates to button inner base: ", str(innerbg_updates))
+        self.itemconfig(self._innerbg_id, **innerbg_updates)
         txt_updates = self._generate_updates_from_state(richstate, {
-            'color': ('foreground',),
+            #'foreground': ('foreground',),
         })
-        #print("Updates to label: ", str(txt_updates))
-        #self.itemconfig('_txt', **txt_updates)
+        print("Updates to label: ", str(txt_updates))
+        self.itemconfig('_txt', **txt_updates)
 
     def repaint_if_necessary(self):
         if self._invalidated:
@@ -715,17 +721,16 @@ class Widget(_Canvas):
                 cnf[i] = kw.pop(i,None)
         r1 = super().configure(**kw)
         if kw.get('bg') or kw.get('background'):
-            self.original_bg = self['bg']
+            self.original_bg = self['background']
         self.after(10, self._reconfigure, cnf)
-        if r1 is not None:
-            r1.update(self.cnf)
+        #if r1 is not None:
+        #    r1.update(self.cnf)
         return r1
     config = configure
 
     def cget(self, key):
         """Return the resource value for a KEY given as string."""
-        if key in self._features: return self.cnf[key]
-        else: return super().cget(key)
+        return self.cnf[key] if key in self._features else super().cget(key)
     __getitem__ = cget
 
     def _reconfigure(self, cnf={}, **kw):
@@ -735,14 +740,10 @@ class Widget(_Canvas):
         kw = { k:v for k,v in kw.items() if v is not None }        
         self.cnf.update(kw)
         self.cnf = { k:v for k, v in self.cnf.items() if v is not None }
-        self.cnf['fg'] = self.cnf.get('fg') if self.cnf.get('fg', None) else self.cnf.get('foreground','black')
-        self.cnf['bd'] = self.cnf.get('bd') if self.cnf.get('bd', None) else self.cnf.get('borderwidth',6)
-        if self.cnf.get('textvariable') is not None: self.cnf['text'] = self.cnf['textvariable'].get()
-
-        if self['state'] == 'disabled':
-            super().configure(bg=self.cnf.get('disabledbackground'))
-        elif self['state'] == 'normal':
-            super().configure(bg=self.original_bg)
+        self.cnf['foreground'] = self.cnf.get('foreground', self.cnf.get('fg', None))
+        self.cnf['borderwidth'] = self.cnf.get('borderwidth', self.cnf.get('bd', None))
+        if self.cnf.get('textvariable') is not None: 
+            self.cnf['text'] = self.cnf['textvariable'].get()
 
         self._rel = self['relief']
         if self.cnf.get('overrelief') is not None:
@@ -754,34 +755,18 @@ class Widget(_Canvas):
             self.unbind_class('overrelief', '<Leave>')
             self._configure('configure', { 'relief': self._rel }, kw=None)
         
-        if kw.get('activebackground') is not None:
-            self.on_press_color(tag='_innerbg', width=self.winfo_reqwidth(), 
-                height=self.winfo_reqheight(), color=self.cnf.get('activebackground'))
-            self.tag_lower('_activebg')
-        elif kw.get('activebackground') is '': 
-            self.cnf.pop('activebackground', None)
-            self.on_press_color(tag='_innerbg', width=self.winfo_reqwidth(), 
-                height=self.winfo_reqheight(), color=None)
-        
-        if kw.get('activeforeground') is not None:
-            self.bind_class('active_fg','<Enter>', lambda _:self.itemconfig('_txt',fill=kw['activeforeground'] ))
-            self.bind_class('active_fg','<Leave>', lambda _:self.itemconfig('_txt',fill=self.cnf.get('fg','black')) )
-        elif kw.get('activeforeground') is '':
-            self.unbind_class('active_fg','<Enter>')
-            self.unbind_class('active_fg','<Leave>')
-            self.itemconfig('_txt',fill=self.cnf.get('fg','black'))
-        
-        for set_size_if in ('text', 'font', 'textvariable', 'image', 'bitmap', 
+        for resizing_attr in ('text', 'font', 'textvariable', 'image', 'bitmap', 
                             'compound', 'padx', 'pady', 'width', 'height'):
-            if kw.get(set_size_if) is not None:
+            if kw.get(resizing_attr) is not None:
                 W, H = self._info_button(
-                        text = self.cnf.get('text'), 
-                        font = self.cnf.get('font'), 
-                        image = self.cnf.get('image'),
-                        bitmap = self.cnf.get('bitmap'),
-                        padding = ( self.cnf.get('padx',0), self.cnf.get('pady',0) ), 
-                        compound = self.cnf.get('compound'),
-                        textvariable = self.cnf.get('textvariable') )
+                    text = self.cnf.get('text'), 
+                    font = self.cnf.get('font'), 
+                    image = self.cnf.get('image'),
+                    bitmap = self.cnf.get('bitmap'),
+                    padding = (self.cnf.get('padx', 0), self.cnf.get('pady', 0)), 
+                    compound = self.cnf.get('compound'),
+                    textvariable = self.cnf.get('textvariable')
+                )
                 W = kw.get('width', W)
                 H = kw.get('height', H)
                 self._configure('configure', { 'width': W, 'height': H })
@@ -789,8 +774,10 @@ class Widget(_Canvas):
 
         if self.cnf.get('image'):
             if kw.get('activeimage') is not None:
-                self.bind_class('active_img','<Enter>', lambda _:self.itemconfig('_img',image=kw['activeimage'])   )
-                self.bind_class('active_img','<Leave>', lambda _:self.itemconfig('_img',image=self.cnf.get('image'))   )
+                self.bind_class('active_img', '<Enter>', 
+                    lambda _: self.itemconfig('_img', image=kw['activeimage']))
+                self.bind_class('active_img', '<Leave>', 
+                    lambda _: self.itemconfig('_img', image=self.cnf.get('image')))
             elif kw.get('activeimage') is '':
                 self.unbind_class('active_img','<Enter>')
                 self.unbind_class('active_img','<Leave>')
@@ -811,7 +798,7 @@ class Widget(_Canvas):
             # For bitmap config
             config_cnf_bit = {}
             for i in ('anchor', 'bitmap'):
-                config_cnf_bit.update( {i : kw.get(i, self.cnf.get(i))} )
+                config_cnf_bit.update({i : kw.get(i, self.cnf.get(i))})
             self.itemconfig('_bit', config_cnf_bit, state=self['state'])
 
         if kw.get('compound'):
@@ -826,31 +813,16 @@ class Widget(_Canvas):
         config_cnf_txt = {}
         for i in ('text','anchor','font','justify'):
             config_cnf_txt.update( {    i : kw.get(i, self.cnf.get(i))  } )
-        self.itemconfig( '_txt', config_cnf_txt, state=self['state'], 
-                        fill=kw.get('fg', self.cnf.get('fg')), 
-                        disabledfill=kw.get('disabledforeground', 
-                        self.cnf.get('disabledforeground')))  
+        self.itemconfig('_txt', config_cnf_txt, 
+                fill=kw.get('foreground', self.cnf.get('foreground')), 
+                disabledfill=kw.get('disabledforeground', 
+                self.cnf.get('disabledforeground')))  
         # if commented and state='disabled then doesnt disable completely. (NEED FIX)
-        self.after(10, lambda: self.itemconfig( '_txt', state=self['state']))   
              
-        if int(self['takefocus']) and self['state'] == 'normal':
-            self.bind_class('takefocus', '<FocusIn>' , lambda _: self.itemconfig('_tf', state='normal'))
-            self.bind_class('takefocus', '<FocusOut>', lambda _: self.itemconfig('_tf', state='hidden'))
-        elif not int(self['takefocus']) or self['state'] == 'disabled':
-            self.unbind_class('takefocus', '<FocusIn>' )
-            self.unbind_class('takefocus', '<FocusOut>')
-            self.itemconfig('_tf', state='hidden')
-    
-        Edge_color = get_shade(self['bg'], 0.1, 'auto-120')    # This will darken the border around the button
-        self.itemconfig('_border1', outline=Edge_color)
-        self.itemconfig('_border2', fill=Edge_color)
-
-        if kw.get('bd'):
-            self.itemconfig('_bd_color1', width=kw.get('bd', 6))
-            self.itemconfig('_bd_color2', width=kw.get('bd', 6))
-
-        defaultbdcolor = self.cnf.get('innerbg', self.master['bg'])
-        if bool(kw.get('borderless')): 
+        parent_bg = gettkattr(self.master, 'background', 
+                default=gettkattr(self.winfo_toplevel(), 'background', 'yellow'))
+        defaultbdcolor = self.cnf.get('innerbackground', parent_bg)
+        if False and bool(kw.get('borderless')):  # TODO: REVIEW THIS
             # Modify configurations of master widget to support `borderless=1`.
             def configure(cnf=None, **kw):
                 """Configure resources of a widget.
@@ -865,9 +837,9 @@ class Widget(_Canvas):
                 if kw.get('bg') or kw.get('background'):
                     for i in self._instances:
                         if i['borderless']:
-                            i.cnf.update( {'bordercolor': i.master['innerbg']} )
-                            i.itemconfig('_bd_color1', outline=i.master['bg'])
-                            i.itemconfig('_bd_color2', fill=i.master['bg'])
+                            i.cnf.update( {'bordercolor': deepget(i.master, 'background') } )
+                            i.itemconfig('_bd_color1', outline=deepget(i.master, 'background'))
+                            i.itemconfig('_bd_color2', fill=deepget(i.master, 'background'))
                 return r
 
             self.master.configure = configure
@@ -878,10 +850,11 @@ class Widget(_Canvas):
         elif not bool(kw.get('borderless', True)) or not self.cnf.get('borderless'):
             if self.cnf.get('bordercolor') == defaultbdcolor:
                 self.cnf.pop('bordercolor', None)
-            bd_color = self.cnf.get('bordercolor', get_shade(self['innerbg'], 0.04, 'auto-120'))
+            bd_color = self.cnf.get('bordercolor', get_shade(self['innerbackground'], 0.04, 'auto-120'))
             self.cnf.update({'bordercolor': bd_color})
             self.itemconfig('_bd_color1', outline=kw.get('bordercolor', bd_color))
             self.itemconfig('_bd_color2', fill=kw.get('bordercolor', bd_color))
+        self.invalidate_ui()
     
     def bind_class(self, className, sequence=None, func=None, add='+'):
         className = className+str(self)
@@ -984,12 +957,60 @@ class Widget(_Canvas):
     def keys(self):
         """Return a list of all resource names of this widget."""
         K_all = [
-            'background', 'bg', 'innerbackground', 'innerbg',
-            'bd', 'borderwidth', 'cursor', 'height', 
-            'highlightbackground', 'highlightcolor', 'highlightthickness',
-            'relief', 'state', 'takefocus', 'width', 'activebackground', 'activeforeground', 
-            'activeimage', 'activebitmap', 'anchor', 'bitmap', 'command', 'compound', 'disabledforeground', 'fg', 
-            'font', 'foreground', 'image', 'overrelief', 'padx', 'pady', 'repeatdelay', 'repeatinterval', 'text', 
-            'textvariable', 'underline', 'bordercolor', 'cornerrounding', 'borderless', 'disabledbackground']
+            'activebackground',
+            'activebitmap', 
+            'activebordercolor', 
+            'activeborderwidth',
+            'activeforeground', 
+            'activeimage', 
+            'anchor', 
+            'background',
+            'bitmap', 
+            'bd', 'borderwidth', 
+            'bordercolor', 
+            'borderless', 
+            'command', 
+            'compound', 
+            'cornerrounding', 
+            'cursor', 
+            'disabledbackground', 
+            'disabledbitmap', 
+            'disabledbordercolor', 
+            'disabledborderwidth', 
+            'disabledforeground', 
+            'disabledimage', 
+            'font', 
+            'foreground', 
+            'height', 
+            'highlightbackground', 
+            'highlightcolor', 
+            'highlightthickness',
+            'image', 
+            'innerbackground', 'innerbg',
+            'overrelief', 
+            'padx', 
+            'pady', 
+            'pressedbackground', 
+            'pressedbitmap', 
+            'pressedbordercolor', 
+            'pressedborderwidth', 
+            'pressedforeground', 
+            'pressedimage', 
+            'relief', 
+            'state', 
+            'takefocus', 
+            'repeatdelay', 
+            'repeatinterval', 
+            'text', 
+            'textvariable', 
+            'underline', 
+            'width', 
+        ]
         K_all.sort()
         return K_all
+
+def gettkattr(widget:_TK.Widget, attr:str, default=None):
+    try:
+        return widget[attr]
+    except _TK.TclError:
+        return default

@@ -146,9 +146,9 @@ class Button(Widget):
         tkm.Button(root, text='Press Me!!', activebackground=('red','blue') ).pack()
         root.mainloop()"""
 
-    # all the instance of class Button will be stored in _button list.
+    # all the instance of class Button will be stored in Widget's _instances list.
 
-    def __init__(self, master=None, cnf={}, **kw):
+    def __init__(self, master=None, cnf=None, **kw):
         super(Button, self).__init__(master=master, cnf=cnf, **kw)
 
     def invoke(self):
