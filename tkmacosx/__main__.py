@@ -36,7 +36,7 @@ class sample(tk.Tk):
         self.resizable(0,0)
         self.geometry('420x700+300+100')
         self.title('Mac OSX Button Testing')
-        self.wm_attributes('-modified',1)
+        #self.wm_attributes('-modified',1)
         self.main_color = ColorVar(value='lightpink')
         self['bg'] = self.main_color
         grid(self, 20, 5)
