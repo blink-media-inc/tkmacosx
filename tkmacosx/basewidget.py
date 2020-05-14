@@ -467,18 +467,6 @@ class Widget(_Canvas):
 
         #  Focus in and out effect 
         main_win =  self.winfo_toplevel()
-        def _chngIn(evt):
-            #print("chngIn", evt.widget, evt)
-            if self.focus_get() is None:
-                color = get_shade(self['background'], 0.04, 'auto-120')
-                self.itemconfig('_border1', outline=color)
-                self.itemconfig('_border2', fill=color)
-            if self.focus_get() and get_shade(self['background'], 0.04, 'auto-120') == self.itemcget('_border2','fill'):
-                color = get_shade(self['background'], 0.1, 'auto-120')
-                self.itemconfig('_border1', outline=color)
-                self.itemconfig('_border2', fill=color)
-        main_win.bind_class(main_win,'<FocusIn>', _chngIn, '+')
-        main_win.bind_class(main_win,'<FocusOut>', _chngIn, '+')
         self._reconfigure(self.cnf)
 
     @property
@@ -501,12 +489,10 @@ class Widget(_Canvas):
         cr = int(self.cnf['cornerrounding'])
         innerbgcolor = self.cnf.get('innerbackground')
         bdw = int(self.cnf.get('borderwidth', 1))
-        bdcolor = self.cnf.get('bordercolor', get_shade(self['background'], 0.04, 'auto-120'))
+        bdcolor = self.cnf.get('bordercolor', get_shade(self['innerbackground'], 0.04, 'auto-120'))
+        bdcolor = ''
         width, height = self._size
-        if self._innerbg_id:
-            #TODO: destroy previous widget
-            pass
-        tag_id = '_innerbgXXXXXX'
+        tag_id = '_innerbg'
         #self._innerbg_id = self.rounded_rect(0, 0, width, height, cr, tag1=tag_id)
         self._innerbg_id = self.rounded_rect(0, 0, width, height, cr, 
             width=bdw, fill=innerbgcolor, outline=bdcolor,
@@ -549,19 +535,12 @@ class Widget(_Canvas):
         height = ags[0].height
         self._size = (width, height)
         self._init_widget()
-        self.delete('_innerbg')
-        self.delete('_activebg')
-        self.delete('_bd_color1')
-        self.delete('_bd_color2')
-        self.delete('_border1')
-        self.delete('_border2')
-        self.delete('_tf')
         # Need fix (laggy on resizing) ----> workaround: cancel if still resizing 
         if self.stopped: 
             self.after_cancel(self.stopped)
 
-        self.stopped = self.after(50, lambda: self.on_press_color(tag='_innerbg', 
-            width=width, height=height, color=self.cnf.get('activebackground')))
+        #self.stopped = self.after(50, lambda: self.on_press_color(tag='_innerbg', 
+        #    width=width, height=height, color=self.cnf.get('activebackground')))
         #if bdw > 0:
         #    self.rounded_rect(0, 0, width-4, height-4, bdw,
         #        width=bdw + 2, fill=bdcolor, tag1='_border1', tag2='_border2')
@@ -822,38 +801,6 @@ class Widget(_Canvas):
         parent_bg = gettkattr(self.master, 'background', 
                 default=gettkattr(self.winfo_toplevel(), 'background', 'yellow'))
         defaultbdcolor = self.cnf.get('innerbackground', parent_bg)
-        if False and bool(kw.get('borderless')):  # TODO: REVIEW THIS
-            # Modify configurations of master widget to support `borderless=1`.
-            def configure(cnf=None, **kw):
-                """Configure resources of a widget.
-
-                The values for resources are specified as keyword
-                arguments. To get an overview about
-                the allowed keyword arguments call the method keys.
-                """
-                #  Need a better fix ..
-                kw = _TK._cnfmerge((cnf, kw))
-                r = self.master._configure('configure', None, kw)
-                if kw.get('bg') or kw.get('background'):
-                    for i in self._instances:
-                        if i['borderless']:
-                            i.cnf.update( {'bordercolor': deepget(i.master, 'background') } )
-                            i.itemconfig('_bd_color1', outline=deepget(i.master, 'background'))
-                            i.itemconfig('_bd_color2', fill=deepget(i.master, 'background'))
-                return r
-
-            self.master.configure = configure
-            self.master.config = configure
-            self.cnf.update({'bordercolor': defaultbdcolor})
-            self.itemconfig('_bd_color1', outline=defaultbdcolor)
-            self.itemconfig('_bd_color2', fill=defaultbdcolor)
-        elif not bool(kw.get('borderless', True)) or not self.cnf.get('borderless'):
-            if self.cnf.get('bordercolor') == defaultbdcolor:
-                self.cnf.pop('bordercolor', None)
-            bd_color = self.cnf.get('bordercolor', get_shade(self['innerbackground'], 0.04, 'auto-120'))
-            self.cnf.update({'bordercolor': bd_color})
-            self.itemconfig('_bd_color1', outline=kw.get('bordercolor', bd_color))
-            self.itemconfig('_bd_color2', fill=kw.get('bordercolor', bd_color))
         self.invalidate_ui()
     
     def bind_class(self, className, sequence=None, func=None, add='+'):
@@ -900,7 +847,7 @@ class Widget(_Canvas):
         w, h = self.winfo_width(), self.winfo_height()
         if not isinstance(cr, tuple): cr = ( C.Color(cr),C.Color(cr) )
         else: cr = ( C.Color(cr[0]),C.Color(cr[1]) )
-        for i, j in enumerate(list( cr[0].range_to( cr[1],  kw.get('heigh', h)) )):
+        for i, j in enumerate(list( cr[0].range_to( cr[1],  kw.get('height', h)) )):
             self._line(0, i, kw.get('width',w), i, fill=j, tag=tag, state='hidden')
         self.tag_lower(tag)     # keep the tag last 
         return tag 
